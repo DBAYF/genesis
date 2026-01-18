@@ -62,7 +62,22 @@ const envSchema = z.object({
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
 
-  // Service URLs (for internal communication)
+  // Firebase Configuration (External Services)
+  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().min(1, 'Firebase API key is required'),
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().min(1, 'Firebase auth domain is required'),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().min(1, 'Firebase project ID is required'),
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().min(1, 'Firebase storage bucket is required'),
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1, 'Firebase messaging sender ID is required'),
+  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1, 'Firebase app ID is required'),
+  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_DATABASE_URL: z.string().url().optional(),
+
+  // Lovable API Configuration (External API Platform)
+  NEXT_PUBLIC_LOVABLE_API_URL: z.string().url().default('https://api.lovable.dev'),
+  NEXT_PUBLIC_LOVABLE_PROJECT_ID: z.string().optional(),
+  LOVABLE_API_KEY: z.string().optional(),
+
+  // Legacy Service URLs (for backward compatibility - now using Firebase/Lovable)
   NEXT_PUBLIC_AUTH_SERVICE_URL: z.string().url().default('http://localhost:3010'),
   NEXT_PUBLIC_USER_SERVICE_URL: z.string().url().default('http://localhost:3011'),
   NEXT_PUBLIC_COMPANY_SERVICE_URL: z.string().url().default('http://localhost:3012'),

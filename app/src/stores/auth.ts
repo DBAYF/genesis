@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User } from '@/types'
+import { firebaseAPI } from '@/lib/firebase-api'
 
 interface AuthState {
   user: User | null
@@ -37,84 +38,43 @@ export const useAuthStore = create<AuthStore>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null })
         try {
-          // Mock login - in real app this would call API
-          await new Promise(resolve => setTimeout(resolve, 1000))
-
-          const mockUser: User = {
-            id: 'user-1',
-            email,
-            emailVerified: true,
-            phoneVerified: false,
-            firstName: 'John',
-            lastName: 'Doe',
-            timezone: 'Europe/London',
-            locale: 'en-GB',
-            onboardingCompleted: true,
-            pulseEnabled: true,
-            pulsePreferredChannel: 'whatsapp',
-            pulseActiveHoursStart: '08:00',
-            pulseActiveHoursEnd: '22:00',
-            pulseDigestTime: '07:00',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-
-          const mockToken = 'mock-jwt-token'
-
+          const result = await firebaseAPI.auth.signIn(email, password)
           set({
-            user: mockUser,
-            token: mockToken,
+            user: result.profile,
+            token: result.token,
             isAuthenticated: true,
             isLoading: false,
           })
         } catch (error) {
           set({
-            error: 'Login failed',
+            error: (error as Error).message,
             isLoading: false,
           })
+          throw error
         }
       },
 
       register: async (userData: any) => {
         set({ isLoading: true, error: null })
         try {
-          // Mock registration
-          await new Promise(resolve => setTimeout(resolve, 1500))
-
-          const mockUser: User = {
-            id: 'user-' + Date.now(),
-            email: userData.email,
-            emailVerified: false,
-            phoneVerified: false,
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            timezone: 'Europe/London',
-            locale: 'en-GB',
-            onboardingCompleted: false,
-            pulseEnabled: true,
-            pulsePreferredChannel: 'whatsapp',
-            pulseActiveHoursStart: '08:00',
-            pulseActiveHoursEnd: '22:00',
-            pulseDigestTime: '07:00',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-
-          const mockToken = 'mock-jwt-token'
-
+          const result = await firebaseAPI.auth.signUp(
+            userData.email,
+            userData.password,
+            userData.firstName,
+            userData.lastName
+          )
           set({
-            user: mockUser,
-            token: mockToken,
+            user: result.profile,
+            token: result.token,
             isAuthenticated: true,
             isLoading: false,
           })
         } catch (error) {
           set({
-            error: 'Registration failed',
+            error: (error as Error).message,
             isLoading: false,
           })
+          throw error
         }
       },
 
