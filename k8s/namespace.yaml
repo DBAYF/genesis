@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: genesis-engine
+  labels:
+    name: genesis-engine
+    app: genesis-engine

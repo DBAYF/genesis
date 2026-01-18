@@ -1,0 +1,405 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: genesis-postgres
+    environment:
+      POSTGRES_DB: genesis_db
+      POSTGRES_USER: genesis_user
+      POSTGRES_PASSWORD: genesis_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/postgresql/schema.prisma:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genesis_user -d genesis_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  neo4j:
+    image: neo4j:5.15
+    container_name: genesis-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/genesis_password
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: 'apoc.*,gds.*'
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./database/neo4j/schema.cypher:/docker-entrypoint-initdb.d/schema.cypher
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "genesis_password", "MATCH () RETURN count(*) limit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: genesis-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # MICROSERVICES
+  # =============================================================================
+
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: genesis-api-gateway
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-here
+      - JWT_REFRESH_SECRET=your-refresh-token-secret-here
+      - LOG_LEVEL=info
+      - AUTH_SERVICE_URL=http://auth-service:3002
+      - USER_SERVICE_URL=http://user-service:3004
+      - COMPANY_SERVICE_URL=http://company-service:3005
+      - FINANCIAL_SERVICE_URL=http://financial-service:3006
+      - COMPLIANCE_SERVICE_URL=http://compliance-service:3007
+      - CRM_SERVICE_URL=http://crm-service:3008
+      - CALENDAR_SERVICE_URL=http://calendar-service:3009
+      - BILLING_SERVICE_URL=http://billing-service:3010
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: genesis-auth-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key-here
+      - JWT_REFRESH_SECRET=your-refresh-token-secret-here
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - EMAIL_FROM=Genesis Engine <noreply@genesisengine.com>
+      - LOG_LEVEL=info
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./backend/user-service
+      dockerfile: Dockerfile
+    container_name: genesis-user-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - LOG_LEVEL=info
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  company-service:
+    build:
+      context: ./backend/company-service
+      dockerfile: Dockerfile
+    container_name: genesis-company-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - LOG_LEVEL=info
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  financial-service:
+    build:
+      context: ./backend/financial-service
+      dockerfile: Dockerfile
+    container_name: genesis-financial-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - LOG_LEVEL=info
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  compliance-service:
+    build:
+      context: ./backend/compliance-service
+      dockerfile: Dockerfile
+    container_name: genesis-compliance-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - LOG_LEVEL=info
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  crm-service:
+    build:
+      context: ./backend/crm-service
+      dockerfile: Dockerfile
+    container_name: genesis-crm-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3008
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - LOG_LEVEL=info
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  calendar-service:
+    build:
+      context: ./backend/calendar-service
+      dockerfile: Dockerfile
+    container_name: genesis-calendar-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3009
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - LOG_LEVEL=info
+    ports:
+      - "3009:3009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  billing-service:
+    build:
+      context: ./backend/billing-service
+      dockerfile: Dockerfile
+    container_name: genesis-billing-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3010
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - STRIPE_SECRET_KEY=sk_test_your-stripe-key
+      - LOG_LEVEL=info
+    ports:
+      - "3010:3010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  queue-service:
+    build:
+      context: ./backend/queue-service
+      dockerfile: Dockerfile
+    container_name: genesis-queue-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3014
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - EMAIL_FROM=Genesis Engine <noreply@genesisengine.com>
+      - LOG_LEVEL=info
+    ports:
+      - "3014:3014"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  queue-worker:
+    build:
+      context: ./backend/queue-service
+      dockerfile: Dockerfile
+    container_name: genesis-queue-worker
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://genesis_user:genesis_password@postgres:5432/genesis_db
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - EMAIL_FROM=Genesis Engine <noreply@genesisengine.com>
+      - LOG_LEVEL=info
+    command: npm run worker
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # FRONTEND APPLICATION
+  # =============================================================================
+
+  frontend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: genesis-frontend
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_FEATURE_NEXUS_ENABLED=true
+      - NEXT_PUBLIC_FEATURE_COMPLIANCE_ENABLED=true
+      - NEXT_PUBLIC_FEATURE_FINANCIAL_ENABLED=true
+      - NEXT_PUBLIC_FEATURE_CRM_ENABLED=true
+      - NEXT_PUBLIC_FEATURE_CALENDAR_ENABLED=true
+      - NEXT_PUBLIC_FEATURE_PULSE_ENABLED=true
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # DEVELOPMENT TOOLS
+  # =============================================================================
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: genesis-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - genesis-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: genesis-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@genesisengine.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - genesis-network
+
+  # =============================================================================
+  # MONITORING & LOGGING (Optional - Uncomment when needed)
+  # =============================================================================
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: genesis-prometheus
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+  #   networks:
+  #     - genesis-network
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: genesis-grafana
+  #   environment:
+  #     GF_SECURITY_ADMIN_PASSWORD: admin123
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   ports:
+  #     - "3003:3000"
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - genesis-network
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
+  grafana_data:
+
+networks:
+  genesis-network:
+    driver: bridge

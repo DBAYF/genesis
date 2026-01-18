@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: genesis-config
+  namespace: genesis-engine
+data:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  DEFAULT_TIMEZONE: "Europe/London"
+  DEFAULT_CURRENCY: "GBP"
+  DEFAULT_TAX_RATE: "0.20"
+  INVOICE_DUE_DAYS: "30"
+  TRIAL_PERIOD_DAYS: "14"
+  JWT_EXPIRES_IN: "15m"
+  JWT_REFRESH_EXPIRES_IN: "7d"
+  RATE_LIMIT_MAX: "1000"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  MAX_FILE_SIZE: "10485760"
+  HEALTH_CHECK_INTERVAL: "30000"
+  JOB_TIMEOUT: "300000"
+  QUEUE_NAME: "genesis-jobs"
+  MAX_CONCURRENT_JOBS: "10"
+  MAX_JOB_ATTEMPTS: "3"
+  JOB_REMOVE_ON_COMPLETE: "100"
+  JOB_REMOVE_ON_FAIL: "50"

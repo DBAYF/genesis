@@ -1,0 +1,241 @@
+// ============================================================================
+// GENESIS ENGINE - USER SERVICE DATABASE SCHEMA
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER TABLES (References from main schema)
+// ============================================================================
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  emailVerified         Boolean   @default(false)
+  phone                 String?
+  phoneVerified         Boolean   @default(false)
+  firstName             String?
+  lastName              String?
+  avatarUrl             String?
+  timezone              String    @default("UTC")
+  locale                String    @default("en")
+  onboardingCompleted   Boolean   @default(false)
+  onboardingStep        String?
+  pulseEnabled          Boolean   @default(true)
+  pulsePreferredChannel String    @default("email") // 'sms' | 'whatsapp' | 'telegram' | 'email'
+  pulseActiveHoursStart String    @default("09:00")
+  pulseActiveHoursEnd   String    @default("18:00")
+  pulseDigestTime       String    @default("18:00")
+  status                String    @default("active") // 'active' | 'suspended' | 'deleted'
+  lastActiveAt          DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  profile               UserProfile?
+  experiences           UserExperience[]
+  education             UserEducation[]
+  certifications        UserCertification[]
+  languages             UserLanguage[]
+  preferences           UserPreferences?
+  activities            UserActivity[]
+  connections           UserConnection[] @relation("UserConnections")
+  connectedTo           UserConnection[] @relation("ConnectedToUsers")
+  projects              Project[]
+  messages              Message[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// USER PROFILE TABLES
+// ============================================================================
+
+model UserProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio         String?
+  location    String?
+  website     String?
+  linkedinUrl String?
+  twitterUrl  String?
+  githubUrl   String?
+  skills      String[]
+  interests   String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  experiences     UserExperience[]
+  education       UserEducation[]
+  certifications  UserCertification[]
+  languages       UserLanguage[]
+
+  @@map("user_profiles")
+}
+
+model UserExperience {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId   String?
+  profile     UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyName String
+  position    String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean  @default(false)
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_experiences")
+}
+
+model UserEducation {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId     String?
+  profile       UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  institution   String
+  degree        String
+  fieldOfStudy  String?
+  startDate     DateTime
+  endDate       DateTime?
+  grade         String?
+  activities    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_education")
+}
+
+model UserCertification {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId      String?
+  profile        UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name           String
+  issuer         String
+  issueDate      DateTime
+  expiryDate     DateTime?
+  credentialId   String?
+  credentialUrl  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("user_certifications")
+}
+
+model UserLanguage {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId   String?
+  profile     UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  language    String
+  proficiency String   // 'beginner' | 'intermediate' | 'advanced' | 'native'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_languages")
+}
+
+// ============================================================================
+// USER PREFERENCES
+// ============================================================================
+
+model UserPreferences {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme             String   @default("system") // 'light' | 'dark' | 'system'
+  language          String   @default("en")
+  timezone          String   @default("UTC")
+  dateFormat        String   @default("DD/MM/YYYY")
+  currency          String   @default("GBP")
+  notificationSettings Json @default("{}")
+  privacySettings   Json    @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+// ============================================================================
+// USER ACTIVITY TRACKING
+// ============================================================================
+
+model UserActivity {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // e.g., 'login', 'profile_update', 'message_sent'
+  resourceType String  // e.g., 'user', 'project', 'message'
+  resourceId  String
+  metadata    Json     @default("{}")
+  ipAddress   String
+  userAgent   String
+  createdAt   DateTime @default(now())
+
+  @@map("user_activities")
+}
+
+// ============================================================================
+// CONNECTIONS AND NETWORKING
+// ============================================================================
+
+model UserConnection {
+  id          String   @id @default(uuid())
+  fromUserId  String
+  fromUser    User     @relation("UserConnections", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId    String
+  toUser      User     @relation("ConnectedToUsers", fields: [toUserId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // 'pending' | 'accepted' | 'declined' | 'blocked'
+  initiatedBy String   // userId of who initiated the connection
+  message     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fromUserId, toUserId])
+  @@map("user_connections")
+}
+
+// ============================================================================
+// PLACEHOLDER MODELS (Referenced but defined elsewhere)
+// ============================================================================
+
+model Project {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("projects")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  type      String   @default("text")
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}

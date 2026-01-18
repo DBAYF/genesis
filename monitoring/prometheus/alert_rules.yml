@@ -1,0 +1,134 @@
+groups:
+  - name: genesis_alerts
+    rules:
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 5 minutes."
+
+      - alert: ServiceUnhealthy
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service {{ $labels.instance }} health check failed"
+          description: "Health check for {{ $labels.instance }} has failed."
+
+      # API Gateway Alerts
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | printf \"%.2f\" }}% over the last 5 minutes."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: "95th percentile latency is {{ $value }}s over the last 5 minutes."
+
+      # Queue Service Alerts
+      - alert: QueueBacklogHigh
+        expr: bullmq_jobs_waiting > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue backlog"
+          description: "{{ $value }} jobs are waiting in the queue."
+
+      - alert: QueueFailuresHigh
+        expr: increase(bullmq_jobs_failed[10m]) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High job failure rate"
+          description: "{{ $value }} jobs failed in the last 10 minutes."
+
+      # Database Alerts
+      - alert: DatabaseDown
+        expr: up{job=~"postgres|redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database {{ $labels.job }} is down"
+          description: "Database {{ $labels.job }} at {{ $labels.instance }} is not responding."
+
+      - alert: DatabaseHighConnections
+        expr: pg_stat_activity_count > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections"
+          description: "PostgreSQL has {{ $value }} active connections."
+
+      # Resource Usage Alerts
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.container }}"
+          description: "Container {{ $labels.container }} CPU usage is {{ $value | printf \"%.2f\" }}%."
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.container }}"
+          description: "Container {{ $labels.container }} memory usage is {{ $value | printf \"%.2f\" }}%."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is below 10% on {{ $labels.instance }}."
+
+      # Business Logic Alerts
+      - alert: FailedPaymentsHigh
+        expr: increase(payment_failed_total[1h]) > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High payment failure rate"
+          description: "{{ $value }} payments failed in the last hour."
+
+      - alert: ComplianceDeadlinesApproaching
+        expr: compliance_deadlines_due_soon > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Compliance deadlines approaching"
+          description: "{{ $value }} compliance tasks are due within 7 days."
+
+      - alert: LowSubscriptionConversion
+        expr: subscription_conversion_rate < 0.05
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Low subscription conversion rate"
+          description: "Subscription conversion rate is below 5%."

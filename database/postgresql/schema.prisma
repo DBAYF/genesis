@@ -1,0 +1,1090 @@
+// ============================================================================
+// GENESIS ENGINE - POSTGRESQL DATABASE SCHEMA
+// ============================================================================
+// Comprehensive schema for all Genesis Engine services
+// Based on the technical specification database definitions
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USERS & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id                       String   @id @default(cuid())
+  email                    String   @unique
+  emailVerified            Boolean  @default(false)
+  phone                    String?
+  phoneVerified            Boolean  @default(false)
+  passwordHash             String?
+  firstName                String?
+  lastName                 String?
+  avatarUrl                String?
+  timezone                 String   @default("Europe/London")
+  locale                   String   @default("en-GB")
+
+  // Onboarding
+  onboardingCompleted      Boolean  @default(false)
+  onboardingStep           String?
+
+  // Pulse preferences
+  pulseEnabled             Boolean  @default(true)
+  pulsePreferredChannel    String   @default("whatsapp")
+  pulseActiveHoursStart    String   @default("08:00")
+  pulseActiveHoursEnd      String   @default("22:00")
+  pulseDigestTime          String   @default("07:00")
+
+  // Status
+  status                   String   @default("active") // 'active', 'suspended', 'deleted'
+  lastActiveAt             DateTime?
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  deletedAt                DateTime?
+
+  // Relations
+  authMethods              UserAuthMethod[]
+  sessions                 Session[]
+  profile                  UserProfile?
+  experiences              UserExperience[]
+  education                UserEducation[]
+  certifications           UserCertification[]
+  languages                UserLanguage[]
+  preferences              UserPreferences?
+  activities               UserActivity[]
+  connections              UserConnection[] @relation("UserConnections")
+  connectedTo              UserConnection[] @relation("ConnectedToUsers")
+  companyMembers           CompanyMember[]
+  officers                 Officer[]
+  shareholders             Shareholder[]
+  conversations            Conversation[]
+  messages                 Message[]
+  complianceTasks          ComplianceTask[]
+  fundingApplications      FundingApplication[]
+  investorProfiles         InvestorProfile[]
+
+  @@map("users")
+}
+
+model UserAuthMethod {
+  id                   String   @id @default(cuid())
+  userId               String
+  provider             String   // 'email', 'google', 'apple', 'linkedin'
+  providerUserId       String?
+  accessTokenEncrypted String?
+  refreshTokenEncrypted String?
+  tokenExpiresAt       DateTime?
+  metadata             Json     @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("user_auth_methods")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  tokenHash    String   @unique
+  deviceInfo   Json     @default("{}")
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  lastUsedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================================================
+// USER PROFILES & DETAILS
+// ============================================================================
+
+model UserProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basic info
+  bio         String?
+  location    String?
+  website     String?
+  linkedinUrl String?
+  twitterUrl  String?
+  githubUrl   String?
+
+  // Skills and interests
+  skills      String[]
+  interests   String[]
+
+  // Audit
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  experiences     UserExperience[]
+  education       UserEducation[]
+  certifications  UserCertification[]
+  languages       UserLanguage[]
+
+  @@map("user_profiles")
+}
+
+model UserExperience {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId   String?
+  profile     UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  companyName String
+  position    String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean  @default(false)
+  location    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_experiences")
+}
+
+model UserEducation {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId     String?
+  profile       UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  institution   String
+  degree        String
+  fieldOfStudy  String?
+  startDate     DateTime
+  endDate       DateTime?
+  grade         String?
+  activities    String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_education")
+}
+
+model UserCertification {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId      String?
+  profile        UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  name           String
+  issuer         String
+  issueDate      DateTime
+  expiryDate     DateTime?
+  credentialId   String?
+  credentialUrl  String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("user_certifications")
+}
+
+model UserLanguage {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId   String?
+  profile     UserProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  language    String
+  proficiency String   // 'beginner' | 'intermediate' | 'advanced' | 'native'
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_languages")
+}
+
+model UserPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  theme             String   @default("system") // 'light' | 'dark' | 'system'
+  language          String   @default("en")
+  timezone          String   @default("UTC")
+  dateFormat        String   @default("DD/MM/YYYY")
+  currency          String   @default("GBP")
+  notificationSettings Json @default("{}")
+  privacySettings   Json    @default("{}")
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  action      String   // e.g., 'login', 'profile_update', 'message_sent'
+  resourceType String  // e.g., 'user', 'project', 'message'
+  resourceId  String
+  metadata    Json     @default("{}")
+  ipAddress   String
+  userAgent   String
+
+  createdAt   DateTime @default(now())
+
+  @@map("user_activities")
+}
+
+model UserConnection {
+  id          String   @id @default(cuid())
+  fromUserId  String
+  fromUser    User     @relation("UserConnections", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId    String
+  toUser      User     @relation("ConnectedToUsers", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  status      String   @default("pending") // 'pending' | 'accepted' | 'declined' | 'blocked'
+  initiatedBy String   // userId of who initiated the connection
+  message     String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fromUserId, toUserId])
+  @@map("user_connections")
+}
+
+// ============================================================================
+// COMPANIES & STRUCTURE
+// ============================================================================
+
+model Company {
+  id                       String   @id @default(cuid())
+
+  // Basic Info
+  name                     String
+  tradingName              String?
+  companyNumber            String?  @unique
+
+  // Type & Structure
+  companyType              String   @default("ltd") // 'ltd', 'plc', 'llp', 'partnership', 'sole_trader', 'cic', 'charity'
+  companyStatus            String   @default("pre_incorporation") // 'pre_incorporation', 'active', 'dormant', 'dissolved', 'liquidation'
+
+  // Dates
+  incorporationDate        DateTime?
+  accountingReferenceDate  DateTime?
+  firstAccountsDue         DateTime?
+  nextAccountsDue          DateTime?
+  nextConfirmationStatementDue DateTime?
+
+  // Registered Office
+  registeredAddressLine1    String?
+  registeredAddressLine2    String?
+  registeredAddressCity    String?
+  registeredAddressCounty  String?
+  registeredAddressPostcode String?
+  registeredAddressCountry String   @default("GB")
+
+  // Business Address (if different)
+  businessAddressLine1      String?
+  businessAddressLine2      String?
+  businessAddressCity      String?
+  businessAddressCounty    String?
+  businessAddressPostcode  String?
+  businessAddressCountry   String   @default("GB")
+
+  // Classification
+  sicCodes                 String[] @default([])
+  natureOfBusiness         String?
+  industry                 String?
+  sector                   String?
+
+  // Tax & Compliance
+  corporationTaxReference  String?
+  vatNumber                String?
+  vatRegistered            Boolean  @default(false)
+  payeReference            String?
+  payeRegistered           Boolean  @default(false)
+
+  // SEIS/EIS
+  seisEligible             Boolean?
+  seisAdvanceAssuranceStatus String?
+  seisAdvanceAssuranceDate DateTime?
+  seisAllocationRemaining  Decimal? @default(150000) @db.Decimal(12, 2)
+  eisEligible              Boolean?
+  eisAdvanceAssuranceStatus String?
+  eisAdvanceAssuranceDate  DateTime?
+
+  // Financials (snapshot)
+  currentCashBalance       Decimal? @db.Decimal(15, 2)
+  monthlyBurnRate          Decimal? @db.Decimal(15, 2)
+  runwayMonths             Decimal? @db.Decimal(5, 1)
+  totalFundingRaised       Decimal  @default(0) @db.Decimal(15, 2)
+  lastValuation            Decimal? @db.Decimal(15, 2)
+  lastValuationDate        DateTime?
+
+  // Settings
+  defaultCurrency          String   @default("GBP")
+  financialYearEndMonth    Int      @default(3)
+
+  // Knowledge Graph
+  knowledgeGraphId         String?
+
+  // Metadata
+  metadata                 Json     @default("{}")
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  deletedAt                DateTime?
+
+  // Relations
+  members                  CompanyMember[]
+  officers                 Officer[]
+  shareholders             Shareholder[]
+  shareClasses             ShareClass[]
+  shareholdings            Shareholding[]
+  documents                Document[]
+  tasks                    Task[]
+  complianceTasks          ComplianceTask[]
+  complianceDeadlines      ComplianceDeadline[]
+  transactions             Transaction[]
+  fundingApplications      FundingApplication[]
+  investorProfiles         InvestorProfile[]
+
+  @@map("companies")
+}
+
+model CompanyMember {
+  id                       String   @id @default(cuid())
+  companyId                String
+  userId                   String
+  role                     String   // 'owner', 'admin', 'member', 'viewer', 'advisor', 'investor'
+  title                    String?  // e.g., "CEO", "CTO"
+  isFounder                Boolean  @default(false)
+  isDirector               Boolean  @default(false)
+  isShareholder            Boolean  @default(false)
+  shareholdingPercentage   Decimal? @db.Decimal(5, 2)
+  joinedAt                 DateTime @default(now())
+  invitedBy                String?
+  inviteAcceptedAt         DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedByUser            User?    @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@unique([companyId, userId])
+  @@map("company_members")
+}
+
+// ============================================================================
+// OFFICERS & SHAREHOLDERS
+// ============================================================================
+
+model Officer {
+  id                       String   @id @default(cuid())
+  companyId                String
+  userId                   String?
+
+  // Officer Type
+  officerType              String   // 'director', 'secretary', 'member', 'llp_member', 'psc'
+  officerRole              String?  // e.g., "Managing Director"
+
+  // Personal Details
+  title                    String?
+  firstName                String
+  middleNames              String?
+  lastName                 String
+  formerNames              Json     @default([])
+  dateOfBirth              DateTime?
+  nationality              String?
+  occupation               String?
+
+  // Address
+  addressLine1              String?
+  addressLine2              String?
+  addressCity              String?
+  addressCounty            String?
+  addressPostcode          String?
+  addressCountry           String?
+
+  // Service Address (if different)
+  serviceAddressLine1       String?
+  serviceAddressLine2       String?
+  serviceAddressCity       String?
+  serviceAddressPostcode   String?
+  serviceAddressCountry    String?
+
+  // Appointment
+  appointedOn              DateTime?
+  resignedOn               DateTime?
+
+  // Companies House
+  companiesHouseId         String?
+
+  // Status
+  status                   String   @default("active") // 'active', 'resigned', 'removed'
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                     User?    @relation(fields: [userId], references: [id])
+
+  @@map("officers")
+}
+
+model Shareholder {
+  id                       String   @id @default(cuid())
+  companyId                String
+  userId                   String?
+
+  // Entity Type
+  shareholderType          String   // 'individual', 'company', 'trust', 'nominee'
+
+  // For individuals
+  title                    String?
+  firstName                String?
+  lastName                 String?
+  dateOfBirth              DateTime?
+
+  // For companies
+  companyName              String?
+  companyNumber            String?
+  companyJurisdiction      String?
+
+  // Address
+  addressLine1              String?
+  addressLine2              String?
+  addressCity              String?
+  addressPostcode          String?
+  addressCountry           String?
+
+  // Contact
+  email                    String?
+  phone                    String?
+
+  // Classification
+  investorType             String?  // 'founder', 'angel', 'vc', 'employee', 'other'
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                     User?    @relation(fields: [userId], references: [id])
+
+  @@map("shareholders")
+}
+
+// ============================================================================
+// SHARE CAPITAL
+// ============================================================================
+
+model ShareClass {
+  id                       String   @id @default(cuid())
+  companyId                String
+
+  className                String   // 'Ordinary', 'Preference A', etc.
+  classCode                String   // 'ORD', 'PREF-A', etc.
+
+  // Rights
+  votingRights             Boolean  @default(true)
+  dividendRights           Boolean  @default(true)
+  liquidationRights        Boolean  @default(true)
+  conversionRights         Boolean  @default(false)
+  redemptionRights         Boolean  @default(false)
+
+  // Terms
+  parValue                 Decimal  @default(0.01) @db.Decimal(10, 4)
+  dividendRate             Decimal? @db.Decimal(5, 2) // For preference shares
+  liquidationPreference    Decimal? @db.Decimal(10, 2)
+  conversionRatio          Decimal? @db.Decimal(10, 4)
+  redemptionPrice          Decimal? @db.Decimal(10, 2)
+
+  // Status
+  status                   String   @default("active") // 'active', 'cancelled'
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shareholdings            Shareholding[]
+
+  @@map("share_classes")
+}
+
+model Shareholding {
+  id                       String   @id @default(cuid())
+  companyId                String
+  shareholderId            String
+  shareClassId             String
+
+  // Share details
+  numberOfShares           Int
+  percentage               Decimal  @db.Decimal(5, 2)
+  acquiredDate             DateTime
+  acquisitionPrice         Decimal? @db.Decimal(10, 4) // Price per share
+  totalCost                Decimal? @db.Decimal(15, 2)
+
+  // Status
+  status                   String   @default("active") // 'active', 'transferred', 'cancelled'
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shareholder              Shareholder @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+  shareClass               ShareClass @relation(fields: [shareClassId], references: [id], onDelete: Cascade)
+
+  @@map("shareholdings")
+}
+
+// ============================================================================
+// DOCUMENTS
+// ============================================================================
+
+model Document {
+  id                       String   @id @default(cuid())
+  companyId                String
+
+  // Document info
+  name                     String
+  type                     String   // 'incorporation', 'accounts', 'confirmation_statement', 'contract', 'pitch_deck', etc.
+  category                 String   // 'legal', 'financial', 'operational', 'marketing'
+
+  // File details
+  filename                 String
+  originalFilename         String
+  mimeType                 String
+  size                     Int
+  storagePath              String
+  storageBucket            String?
+
+  // Document metadata
+  description              String?
+  tags                     String[] @default([])
+  version                  Int      @default(1)
+  isLatest                 Boolean  @default(true)
+
+  // Legal/Compliance
+  isExecuted               Boolean  @default(false)
+  executedAt               DateTime?
+  expiresAt                DateTime?
+  requiresRenewal          Boolean  @default(false)
+
+  // External integrations
+  companiesHouseId         String?
+  hmrcId                   String?
+
+  // Audit
+  uploadedBy               String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedByUser           User     @relation(fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+}
+
+// ============================================================================
+// TASKS & WORKFLOW
+// ============================================================================
+
+model Task {
+  id                       String   @id @default(cuid())
+  companyId                String
+
+  // Task details
+  title                    String
+  description              String?
+  type                     String   // 'onboarding', 'compliance', 'financial', 'legal', 'operational'
+  priority                 String   @default("medium") // 'low', 'medium', 'high', 'urgent'
+
+  // Status
+  status                   String   @default("pending") // 'pending', 'in_progress', 'completed', 'cancelled'
+  progress                 Int      @default(0) // 0-100
+
+  // Dates
+  dueDate                  DateTime?
+  completedAt              DateTime?
+
+  // Assignment
+  assignedTo               String?
+  assignedBy               String?
+
+  // Dependencies
+  dependsOn                String[] @default([]) // Task IDs this depends on
+  blocking                 String[] @default([]) // Task IDs this blocks
+
+  // Automation
+  isAutomated              Boolean  @default(false)
+  automationTrigger        String?
+  automationAction         String?
+
+  // Metadata
+  metadata                 Json     @default("{}")
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedToUser           User?    @relation(fields: [assignedTo], references: [id])
+  assignedByUser           User?    @relation(fields: [assignedBy], references: [id])
+
+  @@map("tasks")
+}
+
+// ============================================================================
+// COMPLIANCE
+// ============================================================================
+
+model ComplianceTask {
+  id                       String   @id @default(cuid())
+  companyId                String
+  userId                   String
+
+  // Task details
+  title                    String
+  description              String?
+  category                 String   // 'accounts', 'confirmation_statement', 'vat', 'paye', 'corporation_tax'
+  priority                 String   @default("medium") // 'low', 'medium', 'high', 'urgent'
+
+  // Status & dates
+  status                   String   @default("pending") // 'pending', 'in_progress', 'completed', 'overdue', 'cancelled'
+  dueDate                  DateTime
+  completedAt              DateTime?
+  snoozedUntil             DateTime?
+
+  // External references
+  companiesHouseId         String?
+  hmrcId                   String?
+
+  // Automation
+  isAutomated              Boolean  @default(false)
+  automationType           String?  // 'companies_house_filing', 'hmrc_submission', 'reminder'
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("compliance_tasks")
+}
+
+model ComplianceDeadline {
+  id                       String   @id @default(cuid())
+  companyId                String
+
+  // Deadline details
+  name                     String
+  description              String?
+  category                 String   // 'accounts', 'confirmation_statement', 'vat', 'paye', 'corporation_tax'
+  frequency                String   // 'annual', 'quarterly', 'monthly', 'one_time'
+
+  // Dates
+  dueDate                  DateTime
+  nextDueDate              DateTime?
+  lastCompletedAt          DateTime?
+
+  // Status
+  status                   String   @default("active") // 'active', 'completed', 'cancelled'
+
+  // External integration
+  companiesHouseId         String?
+  hmrcId                   String?
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("compliance_deadlines")
+}
+
+// ============================================================================
+// FINANCIAL
+// ============================================================================
+
+model Transaction {
+  id                       String   @id @default(cuid())
+  companyId                String
+
+  // Transaction details
+  date                     DateTime
+  description              String
+  amount                   Decimal  @db.Decimal(15, 2)
+  currency                 String   @default("GBP")
+
+  // Classification
+  type                     String   // 'income', 'expense', 'transfer', 'investment', 'dividend'
+  category                 String   // 'revenue', 'cost_of_sales', 'operating_expenses', 'capital_expenditure', etc.
+  subcategory              String?
+
+  // VAT
+  isVatable                Boolean  @default(true)
+  vatRate                  Decimal? @db.Decimal(5, 2)
+  vatAmount                Decimal? @db.Decimal(15, 2)
+
+  // Bank reconciliation
+  bankAccountId            String?
+  bankTransactionId        String?
+  reconciledAt             DateTime?
+  reconciledBy             String?
+
+  // External integrations
+  quickbooksId             String?
+  xeroId                   String?
+  stripeId                 String?
+
+  // Documents
+  receiptUrl               String?
+  invoiceUrl               String?
+
+  // Audit
+  createdBy                String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser            User     @relation(fields: [createdBy], references: [id])
+
+  @@map("transactions")
+}
+
+// ============================================================================
+// PULSE (MESSAGING)
+// ============================================================================
+
+model Conversation {
+  id                       String   @id @default(cuid())
+  userId                   String
+
+  // Conversation details
+  title                    String?
+  channel                  String   // 'sms', 'whatsapp', 'telegram', 'email'
+  channelIdentifier        String   // phone number, email, etc.
+  status                   String   @default("active") // 'active', 'archived', 'closed'
+
+  // Participants
+  participants             Json     @default("[]") // For group conversations
+
+  // Last activity
+  lastMessageAt            DateTime?
+  lastMessagePreview       String?
+
+  // Settings
+  isMuted                  Boolean  @default(false)
+  isPinned                 Boolean  @default(false)
+
+  // AI features
+  aiEnabled                Boolean  @default(true)
+  aiPersonality            String?  // 'professional', 'casual', 'expert'
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages                 Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id                       String   @id @default(cuid())
+  conversationId           String
+  userId                   String?
+
+  // Message content
+  content                  String
+  messageType              String   @default("text") // 'text', 'image', 'file', 'system'
+  direction                String   // 'inbound', 'outbound'
+
+  // Media attachments
+  attachments              Json     @default("[]")
+
+  // Status
+  status                   String   @default("sent") // 'sending', 'sent', 'delivered', 'read', 'failed'
+  sentAt                   DateTime @default(now())
+  deliveredAt              DateTime?
+  readAt                   DateTime?
+
+  // AI processing
+  aiProcessed              Boolean  @default(false)
+  aiIntent                 String?
+  aiConfidence             Decimal? @db.Decimal(3, 2)
+  aiResponse               String?
+
+  // External references
+  externalId               String?  // Twilio SID, etc.
+  externalMetadata         Json     @default("{}")
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  conversation             Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user                     User?    @relation(fields: [userId], references: [id])
+
+  @@map("messages")
+}
+
+// ============================================================================
+// NEXUS (NETWORKING & FUNDING)
+// ============================================================================
+
+model InvestorProfile {
+  id                       String   @id @default(cuid())
+  userId                   String
+  companyId                String?
+
+  // Profile details
+  bio                      String?
+  linkedinUrl              String?
+  websiteUrl               String?
+
+  // Investment focus
+  investmentFocus          String[] @default([])
+  investmentStages         String[] @default([]) // 'pre_seed', 'seed', 'series_a', etc.
+  investmentRange          Json     @default("{}") // { min: number, max: number }
+
+  // Track record
+  totalInvestments         Int      @default(0)
+  successfulExits          Int      @default(0)
+  portfolioCompanies       Json     @default("[]")
+
+  // Preferences
+  preferredIndustries      String[] @default([])
+  preferredLocations       String[] @default([])
+  preferredCompanyStages   String[] @default([])
+
+  // Status
+  isActive                 Boolean  @default(true)
+  verificationStatus       String   @default("unverified") // 'unverified', 'pending', 'verified'
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company                  Company? @relation(fields: [companyId], references: [id])
+
+  @@map("investor_profiles")
+}
+
+model IntroductionRequest {
+  id                       String   @id @default(cuid())
+
+  // Parties
+  requesterId              String   // User requesting introduction
+  targetId                 String   // Person/company to be introduced to
+  introducerId             String?  // Person making the introduction
+
+  // Context
+  companyId                String?
+  introductionType         String   // 'investor', 'partner', 'advisor', 'customer'
+  introductionReason       String
+
+  // Status
+  status                   String   @default("pending") // 'pending', 'approved', 'declined', 'completed'
+  responseMessage          String?
+
+  // Dates
+  requestedAt              DateTime @default(now())
+  respondedAt              DateTime?
+  completedAt              DateTime?
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@map("introduction_requests")
+}
+
+model FundingApplication {
+  id                       String   @id @default(cuid())
+  companyId                String
+  userId                   String
+
+  // Application details
+  fundingType              String   // 'equity', 'debt', 'grant', 'convertible_note'
+  fundingStage             String   // 'pre_seed', 'seed', 'series_a', etc.
+  amountRequested          Decimal  @db.Decimal(15, 2)
+  currency                 String   @default("GBP")
+
+  // Company info
+  companyDescription       String
+  traction                 String?
+  marketSize               String?
+  competitiveAdvantage     String?
+
+  // Financials
+  currentRevenue           Decimal? @db.Decimal(15, 2)
+  projectedRevenue         Decimal? @db.Decimal(15, 2)
+  currentBurnRate          Decimal? @db.Decimal(15, 2)
+  runwayMonths             Decimal? @db.Decimal(5, 1)
+
+  // Use of funds
+  useOfFunds               Json     @default("[]") // Array of { category: string, amount: number, description: string }
+
+  // Documents
+  pitchDeckUrl             String?
+  financialModelUrl        String?
+  businessPlanUrl          String?
+
+  // Status
+  status                   String   @default("draft") // 'draft', 'submitted', 'under_review', 'approved', 'rejected', 'funded'
+  submittedAt              DateTime?
+  reviewedAt               DateTime?
+  decisionAt               DateTime?
+
+  // Investor matching
+  matchedInvestors         String[] @default([]) // Investor IDs
+  aiMatchingScore          Decimal? @db.Decimal(3, 2)
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("funding_applications")
+}
+
+// ============================================================================
+// GENESIS ENGINE CORE
+// ============================================================================
+
+model GenesisPhase {
+  id                       String   @id @default(cuid())
+
+  name                     String
+  description              String
+  order                    Int
+  estimatedDuration        Int      // days
+
+  // Configuration
+  isActive                 Boolean  @default(true)
+  requiredForCompletion    String[] @default([]) // Module IDs
+
+  // Metadata
+  icon                     String?
+  color                    String?
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  modules                  GenesisModule[]
+
+  @@map("genesis_phases")
+}
+
+model GenesisModule {
+  id                       String   @id @default(cuid())
+  phaseId                  String
+
+  name                     String
+  description              String
+  type                     String   // 'document', 'task', 'integration', 'review'
+  order                    Int
+
+  // Configuration
+  isRequired               Boolean  @default(true)
+  isAutomated              Boolean  @default(false)
+  estimatedDuration        Int      // minutes
+
+  // AI Configuration
+  aiPrompt                 String?
+  aiModel                  String?
+  aiTemperature            Decimal? @db.Decimal(3, 2)
+
+  // Status tracking
+  completionCriteria       Json     @default("{}")
+
+  // Metadata
+  icon                     String?
+  category                 String?
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  phase                    GenesisPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@map("genesis_modules")
+}
+
+model CompanyGenesisProgress {
+  id                       String   @id @default(cuid())
+  companyId                String
+
+  phaseId                  String
+  moduleId                 String
+
+  // Progress
+  status                   String   @default("not_started") // 'not_started', 'in_progress', 'completed', 'skipped'
+  progress                 Int      @default(0) // 0-100
+  startedAt                DateTime?
+  completedAt              DateTime?
+
+  // AI interactions
+  aiInteractions           Json     @default("[]")
+  aiGeneratedContent       Json     @default("{}")
+
+  // User interactions
+  userInputs               Json     @default("{}")
+  userFeedback             String?
+
+  // Audit
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([companyId, phaseId, moduleId])
+  @@map("company_genesis_progress")
+}

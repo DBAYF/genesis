@@ -1,0 +1,59 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@genesisengine.com'
+  smtp_auth_username: 'alerts@genesisengine.com'
+  smtp_auth_password: 'your-app-password'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'genesis-team'
+  routes:
+  - match:
+      severity: critical
+    receiver: 'genesis-critical'
+  - match:
+      severity: warning
+    receiver: 'genesis-warning'
+
+receivers:
+- name: 'genesis-team'
+  email_configs:
+  - to: 'team@genesisengine.com'
+    subject: 'Genesis Engine Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Severity: {{ .Labels.severity }}
+      Instance: {{ .Labels.instance }}
+      {{ end }}
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#alerts'
+    title: 'Genesis Engine Alert'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Severity:* {{ .Labels.severity }}
+      *Instance:* {{ .Labels.instance }}
+      {{ end }}
+
+- name: 'genesis-critical'
+  email_configs:
+  - to: 'oncall@genesisengine.com'
+    subject: 'CRITICAL: Genesis Engine Alert - {{ .GroupLabels.alertname }}'
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#critical-alerts'
+    title: '🚨 CRITICAL Alert'
+  pagerduty_configs:
+  - service_key: 'your-pagerduty-service-key'
+
+- name: 'genesis-warning'
+  email_configs:
+  - to: 'team@genesisengine.com'
+    subject: 'WARNING: Genesis Engine Alert - {{ .GroupLabels.alertname }}'

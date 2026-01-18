@@ -1,0 +1,95 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Genesis Engine Services
+  - job_name: 'genesis-api-gateway'
+    static_configs:
+      - targets: ['api-gateway:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'genesis-auth-service'
+    static_configs:
+      - targets: ['auth-service:3002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-user-service'
+    static_configs:
+      - targets: ['user-service:3004']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-company-service'
+    static_configs:
+      - targets: ['company-service:3005']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-financial-service'
+    static_configs:
+      - targets: ['financial-service:3006']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-compliance-service'
+    static_configs:
+      - targets: ['compliance-service:3007']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-crm-service'
+    static_configs:
+      - targets: ['crm-service:3008']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-calendar-service'
+    static_configs:
+      - targets: ['calendar-service:3009']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-billing-service'
+    static_configs:
+      - targets: ['billing-service:3010']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'genesis-queue-service'
+    static_configs:
+      - targets: ['queue-service:3014']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Databases
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # Infrastructure
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
