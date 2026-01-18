@@ -1,0 +1,300 @@
+---
+# =============================================================================
+# GENESIS ENGINE - SECURITY CONFIGURATION
+# =============================================================================
+
+# OWASP Security Headers
+security_headers:
+  # Strict Transport Security
+  hsts:
+    enabled: true
+    max_age: 31536000  # 1 year
+    include_subdomains: true
+    preload: true
+
+  # Content Security Policy
+  csp:
+    enabled: true
+    default_src: "'self'"
+    script_src: "'self' 'unsafe-inline' https://cdn.genesisengine.com"
+    style_src: "'self' 'unsafe-inline' https://fonts.googleapis.com"
+    font_src: "'self' https://fonts.gstatic.com"
+    img_src: "'self' data: https: https://cdn.genesisengine.com"
+    connect_src: "'self' https://api.genesisengine.com wss://api.genesisengine.com"
+    frame_src: "'none'"
+    object_src: "'none'"
+    base_uri: "'self'"
+    form_action: "'self'"
+    frame_ancestors: "'none'"
+    upgrade_insecure_requests: true
+
+  # X-Frame-Options
+  x_frame_options: "DENY"
+
+  # X-Content-Type-Options
+  x_content_type_options: "nosniff"
+
+  # X-XSS-Protection
+  x_xss_protection: "1; mode=block"
+
+  # Referrer-Policy
+  referrer_policy: "strict-origin-when-cross-origin"
+
+  # Permissions-Policy
+  permissions_policy: "geolocation=(), microphone=(), camera=()"
+
+# Rate Limiting Configuration
+rate_limiting:
+  enabled: true
+
+  # Global limits
+  global:
+    window_ms: 900000  # 15 minutes
+    max_requests: 1000
+
+  # API endpoint limits
+  endpoints:
+    auth:
+      login: { window_ms: 300000, max_requests: 5 }      # 5 per 5 minutes
+      register: { window_ms: 3600000, max_requests: 3 }   # 3 per hour
+      reset_password: { window_ms: 3600000, max_requests: 3 }
+
+    api:
+      read: { window_ms: 60000, max_requests: 100 }       # 100 per minute
+      write: { window_ms: 60000, max_requests: 30 }       # 30 per minute
+      delete: { window_ms: 60000, max_requests: 10 }      # 10 per minute
+
+    search: { window_ms: 60000, max_requests: 50 }        # 50 per minute
+    export: { window_ms: 3600000, max_requests: 5 }       # 5 per hour
+
+  # IP-based limits
+  ip_limits:
+    enabled: true
+    window_ms: 3600000  # 1 hour
+    max_requests: 10000
+
+  # User-based limits (authenticated requests)
+  user_limits:
+    enabled: true
+    window_ms: 3600000  # 1 hour
+    max_requests: 50000
+
+# CORS Configuration
+cors:
+  enabled: true
+  origins:
+    - "https://app.genesisengine.com"
+    - "https://www.genesisengine.com"
+    - "https://staging.genesisengine.com"
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+  allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+    - "X-API-Key"
+    - "X-Request-ID"
+  credentials: true
+  max_age: 86400  # 24 hours
+
+# Authentication & Authorization
+authentication:
+  jwt:
+    algorithm: "RS256"
+    issuer: "https://auth.genesisengine.com"
+    audience: "https://api.genesisengine.com"
+    expiration: "15m"
+    refresh_expiration: "7d"
+    clock_tolerance: 30
+
+  oauth:
+    enabled: true
+    providers:
+      google:
+        enabled: true
+        client_id: "${GOOGLE_CLIENT_ID}"
+        client_secret: "${GOOGLE_CLIENT_SECRET}"
+      github:
+        enabled: true
+        client_id: "${GITHUB_CLIENT_ID}"
+        client_secret: "${GITHUB_CLIENT_SECRET}"
+      linkedin:
+        enabled: true
+        client_id: "${LINKEDIN_CLIENT_ID}"
+        client_secret: "${LINKEDIN_CLIENT_SECRET}"
+
+  mfa:
+    enabled: true
+    required_for: ["admin", "finance"]
+    methods: ["totp", "sms", "email"]
+
+# Data Protection & Privacy
+data_protection:
+  encryption:
+    enabled: true
+    algorithm: "AES-256-GCM"
+    key_rotation_days: 90
+
+  pii_fields:
+    - "email"
+    - "phone"
+    - "firstName"
+    - "lastName"
+    - "address"
+    - "ssn"
+    - "bankAccount"
+
+  data_retention:
+    user_data: 2555  # 7 years (GDPR)
+    audit_logs: 2555
+    backups: 2555
+    temporary_files: 7  # days
+
+  gdpr:
+    enabled: true
+    consent_required: true
+    data_portability: true
+    right_to_be_forgotten: true
+    privacy_policy_url: "https://genesisengine.com/privacy"
+
+# Network Security
+network_security:
+  waf:
+    enabled: true
+    rules:
+      - sql_injection: true
+      - xss: true
+      - csrf: true
+      - rate_limiting: true
+      - geo_blocking: false  # Can be enabled per region
+      - ip_whitelisting: false
+
+  ssl:
+    enabled: true
+    protocol: "TLSv1.3"
+    ciphers: ["TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256"]
+    certificate: "Let's Encrypt"
+    hsts: true
+
+  firewall:
+    enabled: true
+    default_policy: "deny"
+    allowed_ports: [80, 443, 22]
+    allowed_cidrs: []  # Restrict to known IPs for SSH
+
+# Database Security
+database_security:
+  encryption:
+    enabled: true
+    at_rest: true
+    in_transit: true
+
+  access_control:
+    principle_of_least_privilege: true
+    password_rotation: 90  # days
+    connection_limits:
+      per_user: 10
+      per_ip: 50
+
+  auditing:
+    enabled: true
+    log_queries: true
+    log_connections: true
+    log_failures: true
+
+# API Security
+api_security:
+  api_keys:
+    enabled: true
+    rotation_required: true
+    rotation_period: 90  # days
+
+  request_validation:
+    enabled: true
+    sanitize_input: true
+    validate_content_type: true
+    max_payload_size: "10MB"
+
+  response_filtering:
+    enabled: true
+    remove_sensitive_fields: true
+    add_security_headers: true
+
+# Monitoring & Alerting
+security_monitoring:
+  enabled: true
+
+  alerts:
+    failed_logins:
+      threshold: 5
+      window: "5m"
+      severity: "medium"
+
+    suspicious_activity:
+      threshold: 10
+      window: "1h"
+      severity: "high"
+
+    data_exfiltration:
+      threshold: 1000000  # 1MB
+      window: "1h"
+      severity: "critical"
+
+    unauthorized_access:
+      threshold: 1
+      window: "1m"
+      severity: "critical"
+
+  logging:
+    security_events: true
+    auth_events: true
+    data_access: true
+    admin_actions: true
+    retention_days: 2555
+
+# Compliance & Audit
+compliance:
+  enabled: true
+
+  standards:
+    gdpr: true
+    soc2: true
+    iso27001: true
+    pci_dss: false  # Only if handling card data
+
+  auditing:
+    enabled: true
+    immutable_logs: true
+    tamper_detection: true
+
+  reporting:
+    enabled: true
+    frequency: "monthly"
+    recipients: ["compliance@genesisengine.com"]
+
+# Incident Response
+incident_response:
+  enabled: true
+
+  playbooks:
+    data_breach:
+      - isolate_affected_systems
+      - notify_customers
+      - engage_forensics
+      - restore_from_backup
+
+    security_incident:
+      - assess_impact
+      - contain_threat
+      - eradicate_threat
+      - recover_systems
+
+  contacts:
+    primary: "security@genesisengine.com"
+    secondary: "incident@genesisengine.com"
+    legal: "legal@genesisengine.com"
+
+  notification_channels:
+    - email
+    - slack
+    - sms
+    - pager_duty

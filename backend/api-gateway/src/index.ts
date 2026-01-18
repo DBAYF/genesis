@@ -18,6 +18,7 @@ import { monitoringRoutes } from './routes/monitoring.routes'
 import { errorHandler } from './middleware/error-handler'
 import { requestLogger } from './middleware/request-logger'
 import { metricsMiddleware } from './middleware/metrics'
+import { cacheMiddleware } from './middleware/cache'
 import { initSentry, captureException } from './utils/sentry'
 
 // ============================================================================
@@ -139,6 +140,9 @@ export async function buildApp() {
 
   // Metrics collection
   await metricsMiddleware(app)
+
+  // Caching middleware
+  await cacheMiddleware(app)
 
   // ============================================================================
   // HEALTH CHECK
