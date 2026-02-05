@@ -1,50 +1,60 @@
 // Firebase initialization for the frontend
-import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
-import { getDatabase } from 'firebase/database'
-import { getStorage } from 'firebase/storage'
-import { connectAuthEmulator, connectFirestoreEmulator, connectDatabaseEmulator, connectStorageEmulator } from 'firebase/firestore'
-import { config } from '@/config'
+// This file provides a unified interface that switches between mock and real implementations
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: config.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: config.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: config.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: config.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: config.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: config.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: config.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  databaseURL: config.NEXT_PUBLIC_FIREBASE_DATABASE_URL
-}
+const useMockFirebase = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
-
-// Initialize Firebase services
-export const auth = getAuth(app)
-export const db = getFirestore(app)
-export const realtimeDb = getDatabase(app)
-export const storage = getStorage(app)
-
-// Use emulators in development
-if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-  try {
-    connectAuthEmulator(auth, 'http://localhost:9099')
-    connectFirestoreEmulator(db, 'localhost', 8080)
-    connectDatabaseEmulator(realtimeDb, 'localhost', 9000)
-    connectStorageEmulator(storage, 'localhost', 9199)
-    console.log('🔥 Firebase emulators connected')
-  } catch (error) {
-    console.warn('Firebase emulators already connected or failed to connect:', error)
+// Create mock implementations
+const mockAuth = {
+  currentUser: null,
+  onAuthStateChanged: (callback: Function) => {
+    callback(null)
+    return () => {}
+  },
+  signInWithEmailAndPassword: async () => {
+    throw new Error('Use apiClient for auth')
   }
 }
 
-// Export the app for use in other Firebase services
-export default app
+const mockDb = {
+  collection: () => ({
+    doc: () => ({
+      get: async () => ({ exists: false, data: () => null }),
+      set: async () => {},
+      update: async () => {},
+      delete: async () => {}
+    }),
+    get: async () => ({ docs: [] }),
+    add: async () => ({ id: `mock-${Date.now()}` })
+  })
+}
 
-// Initialize Lovable API service (for external integrations)
-import { lovableAPIService } from '../../../lovable/lovable-api'
+const mockRealtimeDb = {
+  ref: () => ({
+    on: () => {},
+    off: () => {},
+    set: async () => {},
+    push: () => ({ key: `mock-${Date.now()}` })
+  })
+}
 
-export { lovableAPIService }
+const mockStorage = {
+  ref: () => ({
+    put: async () => ({ ref: { getDownloadURL: async () => 'mock-url' } }),
+    getDownloadURL: async () => 'mock-url'
+  })
+}
+
+const mockLovableAPIService = {
+  executeRequest: async () => ({ success: true })
+}
+
+// Export the appropriate implementations
+export const auth = useMockFirebase ? mockAuth : null
+export const db = useMockFirebase ? mockDb : null
+export const realtimeDb = useMockFirebase ? mockRealtimeDb : null
+export const storage = useMockFirebase ? mockStorage : null
+export const lovableAPIService = useMockFirebase ? mockLovableAPIService : null
+
+if (useMockFirebase) {
+  console.log('🎭 Mock Firebase initialized for prototyping')
+}

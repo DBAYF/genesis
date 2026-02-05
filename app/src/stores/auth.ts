@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User } from '@/types'
-import { firebaseAPI } from '@/lib/firebase-api'
+import { apiClient } from '@/lib/api-client'
 
 interface AuthState {
   user: User | null
@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthStore>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null })
         try {
-          const result = await firebaseAPI.auth.signIn(email, password)
+          const result = await apiClient.auth.login(email, password)
           set({
             user: result.profile,
             token: result.token,
@@ -57,12 +57,7 @@ export const useAuthStore = create<AuthStore>()(
       register: async (userData: any) => {
         set({ isLoading: true, error: null })
         try {
-          const result = await firebaseAPI.auth.signUp(
-            userData.email,
-            userData.password,
-            userData.firstName,
-            userData.lastName
-          )
+          const result = await apiClient.auth.register(userData)
           set({
             user: result.profile,
             token: result.token,

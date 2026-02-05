@@ -2,10 +2,120 @@
 // GENESIS ENGINE - FIREBASE API CLIENT
 // ============================================================================
 
-import { firebaseAuthService } from '../../../firebase/services/auth.service'
-import { firebaseCompanyService } from '../../../firebase/services/company.service'
-import { firebaseRealtimeService } from '../../../realtime/realtime.service'
-import { lovableAPIService } from '../../../lovable/lovable-api'
+// Conditionally import services based on mock mode
+const useMockAPI = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
+let firebaseAuthService, firebaseCompanyService, firebaseRealtimeService, lovableAPIService
+
+if (useMockAPI) {
+  // Mock implementations for prototyping
+  firebaseAuthService = {
+    signIn: async (email: string, password: string) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return {
+        token: 'mock-token',
+        profile: {
+          uid: 'mock-user-id',
+          email,
+          firstName: 'Mock',
+          lastName: 'User',
+          emailVerified: true
+        }
+      }
+    },
+    signUp: async (email: string, password: string, firstName: string, lastName: string) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return {
+        token: 'mock-token',
+        profile: {
+          uid: 'mock-user-id',
+          email,
+          firstName,
+          lastName,
+          emailVerified: false
+        }
+      }
+    },
+    signOut: async () => {},
+    resetPassword: async (email: string) => console.log('Mock: Password reset for', email),
+    verifyEmail: async () => {},
+    getCurrentUserProfile: async () => null,
+    updateProfile: async (data: any) => data,
+    signInWithGoogle: async () => ({
+      token: 'mock-google-token',
+      profile: { uid: 'mock-google-user', email: 'mock@google.com', firstName: 'Google', lastName: 'User' }
+    }),
+    signInWithLinkedIn: async () => ({
+      token: 'mock-linkedin-token',
+      profile: { uid: 'mock-linkedin-user', email: 'mock@linkedin.com', firstName: 'LinkedIn', lastName: 'User' }
+    })
+  }
+
+  firebaseCompanyService = {
+    createCompany: async (data: any) => ({ id: 'mock-company-id', ...data }),
+    getCompany: async (id: string) => ({ id, name: 'Mock Company', ...mockData.companies[0] }),
+    updateCompany: async (id: string, data: any) => ({ id, ...data }),
+    deleteCompany: async (id: string) => {},
+    getUserCompanies: async (userId: string) => [mockData.companies[0]],
+    searchCompanies: async (query: string) => mockData.companies.filter(c => c.name.includes(query))
+  }
+
+  firebaseRealtimeService = {
+    sendMessage: async (data: any) => 'mock-message-id',
+    onMessages: (conversationId: string, callback: (messages: Message[]) => void, limit: number = 50) => {
+      // Mock: immediately call callback with empty array
+      callback([])
+      return () => console.log('Mock: Unsubscribed from messages')
+    },
+    onNewMessages: (conversationId: string, callback: (messages: Message[]) => void) => {
+      callback([])
+      return () => console.log('Mock: Unsubscribed from new messages')
+    },
+    setTyping: (conversationId: string, userId: string, userName: string) => {
+      console.log(`Mock: ${userName} is typing in ${conversationId}`)
+    },
+    onTypingIndicators: (conversationId: string, callback: (indicators: any[]) => void) => {
+      callback([])
+      return () => console.log('Mock: Unsubscribed from typing indicators')
+    },
+    setPresence: async (userId: string, presence: any) => {},
+    onPresenceChange: (userIds: string[], callback: (presences: any[]) => void) => {
+      callback([])
+      return () => console.log('Mock: Unsubscribed from presence')
+    },
+    sendNotification: async (notification: any) => 'mock-notification-id'
+  }
+
+  lovableAPIService = {
+    executeRequest: async (request: any) => {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      // Mock responses based on endpoint
+      if (request.path?.includes('financial')) {
+        return { projections: [], summary: { totalIncome: 0, totalExpenses: 0, netIncome: 0 } }
+      }
+      if (request.path?.includes('entities')) {
+        return mockData.entities
+      }
+      if (request.path?.includes('nexus')) {
+        return mockData.introductionRequests
+      }
+      if (request.path?.includes('pulse')) {
+        return mockData.conversations
+      }
+      return { success: true }
+    }
+  }
+} else {
+  // Real implementations
+  firebaseAuthService = require('../../../firebase/services/auth.service').firebaseAuthService
+  firebaseCompanyService = require('../../../firebase/services/company.service').firebaseCompanyService
+  firebaseRealtimeService = require('../../../realtime/realtime.service').firebaseRealtimeService
+  lovableAPIService = require('../../../lovable/lovable-api').lovableAPIService
+}
+
+// Import mock data and types for mock implementations
+import { mockData } from '@/data/mockData'
+import { Message } from '@/types'
 
 // ============================================================================
 // FIREBASE API CLIENT
